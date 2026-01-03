@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALLEN GEORGE THOMAS // Notebook</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Reenie+Beanie&family=Rock+Salt&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=VT323&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        :root {
+            --bg-paper: #f4f1e8;
+            --pen-blue: #0000c0;
+            --pencil-gray: #555555;
+            --marker-red: #cc0000;
+        }
+
+        body {
+            background-color: var(--bg-paper);
+            background-image: 
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E"),
+                linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+            background-size: auto, 30px 30px, 30px 30px; 
+            overflow: hidden;
+            cursor: crosshair;
+            height: 100vh;
+            width: 100vw;
+            touch-action: none;
+        }
+
+        /* --- LAYERING --- */
+        .scribble-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        /* --- STATIC BRANDING --- */
+        .static-brand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-2deg);
+            text-align: center;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        /* --- DRAGGABLE ITEMS --- */
+        .drag-item {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s cubic-bezier(0.1, 0.7, 1.0, 0.1), box-shadow 0.2s; /* Faster, snappy response */
+            will-change: transform, left, top;
+            max-width: 90vw;
+            z-index: 10;
+        }
+        .drag-item:active {
+            cursor: grabbing;
+            /* REMOVED SCALE to prevent expansion glitch */
+            transform: rotate(0deg) !important; 
+            z-index: 9999 !important;
+            box-shadow: 20px 20px 30px rgba(0,0,0,0.25); /* Bigger shadow indicates lift */
+            transition: none;
+        }
+        .drag-item:hover { z-index: 50; }
+
+        /* Item Styles */
+        .receipt {
+            background: #fff; width: 240px; padding: 15px; font-family: 'VT323', monospace;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1); font-size: 1rem; border-top: 1px solid #ddd;
+        }
+        .receipt::after {
+            content: ""; display: block; position: absolute; bottom: -10px; left: 0; width: 100%; height: 10px;
+            background: linear-gradient(45deg, transparent 33.333%, #fff 33.333%, #fff 66.667%, transparent 66.667%), linear-gradient(-45deg, transparent 33.333%, #fff 33.333%, #fff 66.667%, transparent 66.667%);
+            background-size: 20px 20px;
+        }
+        
+        /* FIXED POLAROID DIMENSIONS */
+        .polaroid { 
+            background: #fff; 
+            width: 200px; 
+            height: 260px; /* Hard-locked height */
+            padding: 10px; 
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.15); 
+            display: flex;
+            flex-direction: column;
+        }
+        .polaroid div.img-box { 
+            width: 100%; 
+            height: 180px; /* Hard-locked image area */
+            background-color: #f8f8f8; 
+            border: 1px solid #eee; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0;
+        }
+        
+        .eng-scrap { background-color: #e8f4f8; background-image: linear-gradient(#a3cdda 1px, transparent 1px), linear-gradient(90deg, #a3cdda 1px, transparent 1px); background-size: 10px 10px; border: 1px solid #a3cdda; font-family: 'Space Mono', monospace; color: #004466; box-shadow: 3px 3px 5px rgba(0,0,0,0.1); }
+        .cassette { background: #111; border-radius: 8px; border: 3px solid #333; color: white; font-family: 'Permanent Marker', cursive; }
+
+        /* UTILS */
+        .marker-font { font-family: 'Permanent Marker', cursive; }
+        .hand-font { font-family: 'Reenie Beanie', cursive; }
+        .scribble-font { font-family: 'Rock Salt', cursive; }
+        .tape { background-color: rgba(255, 255, 255, 0.4); backdrop-filter: blur(2px); position: absolute; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* SVG Styles */
+        .pen-stroke { stroke: var(--pen-blue); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+        .pencil-stroke { stroke: var(--pencil-gray); fill: none; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; opacity: 0.5; }
+        .marker-stroke { stroke: var(--marker-red); fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.6; }
+
+        /* Animation Classes */
+        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px) rotate(var(--rot)); } to { opacity: 1; transform: translateY(0) rotate(var(--rot)); } }
+        .fade-in-static { animation: fadeInStatic 1s ease-out forwards; opacity: 0; }
+        @keyframes fadeInStatic { from { opacity: 0; transform: translate(-50%, -40%) rotate(-2deg); } to { opacity: 1; transform: translate(-50%, -50%) rotate(-2deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="fixed top-4 right-4 z-[9999]">
+        <button onclick="resetDesk()" class="bg-black text-white font-mono text-xs px-4 py-2 hover:bg-blue-600 transition-colors uppercase shadow-lg border border-white tracking-widest">
+            Tidy Up
+        </button>
+    </div>
+
+    <main id="desk" class="relative w-full h-full">
+
+        <div class="scribble-layer">
+            <svg class="absolute top-10 left-10 w-32 h-32" viewBox="0 0 100 100"><path d="M10,10 C30,5 70,15 90,10 M10,20 C30,15 70,25 90,20" class="pencil-stroke"/></svg>
+            <div class="absolute top-20 left-12 hand-font text-gray-500 rotate-[-5deg] opacity-50">don't forget coffee</div>
+            <svg class="absolute top-5 left-[20%] w-40 h-40" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" class="pen-stroke" stroke-dasharray="5,5" /></svg>
+            <svg class="absolute top-[30%] left-[20%] w-24 h-24 rotate-12" viewBox="0 0 100 100"><path d="M10,50 Q50,20 90,50 M80,30 L90,50 L70,60" class="marker-stroke"/></svg>
+            <svg class="absolute top-[40%] right-[25%] w-32 h-32 rotate-[-15deg]" viewBox="0 0 100 100"><path d="M90,10 Q50,50 10,90 M30,80 L10,90 L20,70" class="pen-stroke"/></svg>
+            <div class="absolute top-[15%] right-[30%] scribble-font text-blue-800 rotate-12 opacity-40">IDEA??</div>
+            <svg class="absolute top-[10%] right-[10%] w-40 h-40" viewBox="0 0 200 200"><path d="M10,100 C50,0 150,0 190,100 C150,200 50,200 10,100 Z" class="pencil-stroke" /></svg>
+            <svg class="absolute bottom-[30%] left-[10%] w-48 h-24" viewBox="0 0 200 100"><path d="M0,50 Q50,0 100,50 T200,50" class="marker-stroke" /></svg>
+            <div class="absolute bottom-[25%] left-[15%] hand-font text-red-700 rotate-[-2deg] opacity-60">chaos is good actually</div>
+            <svg class="absolute top-[60%] left-[40%] w-64 h-20" viewBox="0 0 300 50"><path d="M10,25 Q150,5 290,25" class="pen-stroke" stroke-width="3"/><path d="M20,35 Q150,15 280,35" class="pen-stroke" stroke-width="3"/></svg>
+            <svg class="absolute bottom-[10%] right-[30%] w-32 h-32" viewBox="0 0 100 100"><path d="M50,10 L60,40 L90,50 L60,60 L50,90 L40,60 L10,50 L40,40 Z" class="pencil-stroke"/></svg>
+            <div class="absolute top-[5%] left-[40%] hand-font text-xs text-gray-400">v1.5 stable build</div>
+            <svg class="absolute -bottom-20 -left-20 w-[500px] h-[500px] opacity-20 pointer-events-none" viewBox="0 0 500 500"><path d="M50,450 C200,100 400,100 450,450 C400,600 200,600 50,450" class="pen-stroke" stroke-width="4" /></svg>
+        </div>
+
+        <div class="static-brand fade-in-static" id="main-title">
+            <h1 class="marker-font text-5xl md:text-7xl lg:text-8xl text-gray-900 leading-[0.85] drop-shadow-sm opacity-95">
+                ALLEN<br>
+                GEORGE<br>
+                <span class="text-blue-600">THOMAS.</span>
+            </h1>
+            <svg class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[110%] h-8" viewBox="0 0 400 30" preserveAspectRatio="none">
+                <path d="M0,15 Q100,0 200,15 T400,15" class="marker-stroke" stroke-width="4" />
+            </svg>
+            <p class="font-mono text-xs tracking-[0.3em] mt-6 text-center bg-[#f4f1e8]/80 inline-block px-2 backdrop-blur-sm border-b-2 border-gray-400/30 pb-1">
+                DESIGNER • FILMMAKER • STORYTELLER
+            </p>
+        </div>
+
+        <div class="drag-item bg-yellow-300 w-64 p-5 shadow-md top-[15%] right-[5%] z-20 fade-in-up" style="animation-delay: 0.2s; --rot: 3deg;" data-rot="3">
+            <div class="tape w-12 h-6 -top-3 left-[40%] rotate-2"></div>
+            <p class="hand-font text-2xl leading-none">"Figuring out my sh*t and documenting the process."</p>
+            <p class="text-right mt-3 font-bold text-[10px] font-mono opacity-60">(Visual Archive v1.0)</p>
+            <svg class="absolute bottom-2 left-2 w-10 h-10 opacity-50" viewBox="0 0 50 50"><path d="M10,25 C10,10 40,10 40,25 C40,40 10,40 10,25" class="pen-stroke" /></svg>
+        </div>
+
+        <div class="drag-item receipt top-[15%] left-[5%] z-15 fade-in-up" style="animation-delay: 0.3s; --rot: -4deg;" data-rot="-4">
+            <div class="text-center border-b border-dashed border-black pb-2 mb-2"><h3 class="text-xl">MENU</h3><p class="text-xs text-gray-500">allen_george</p></div>
+            <div class="flex justify-between text-xs mb-1"><span>ADVERTISING</span><span>OK</span></div>
+            <div class="flex justify-between text-xs mb-1"><span>EDITORIAL</span><span>OK</span></div>
+            <div class="flex justify-between text-xs mb-1"><span>WEB_DESIGN</span><span>OK</span></div>
+            <div class="border-t border-dashed border-gray-400 my-2"></div>
+            <div class="flex justify-between text-xs text-gray-400 line-through"><span>PRODUCT</span><span>NOPE</span></div>
+            <div class="border-t border-black mt-3 pt-1 font-bold text-center text-lg uppercase">LET'S WORK</div>
+        </div>
+
+        <div class="drag-item eng-scrap w-56 p-3 top-[5%] right-[25%] md:right-[30%] z-10 fade-in-up" style="animation-delay: 0.4s; --rot: -2deg;" data-rot="-2">
+            <div class="border-b border-[#a3cdda] mb-1 pb-1 text-[10px] font-bold uppercase">STATUS_LOG</div>
+            <h3 class="font-bold text-xs leading-tight text-blue-800">Electronics Eng. Student</h3>
+            <div class="mt-2 text-[10px] font-mono border border-blue-300 p-1 bg-white/50">REMAINING: ~1.5 YRS<br>CREATIVITY: 100%</div>
+            <div class="tape w-8 h-4 -top-2 right-4 rotate-[-10deg]"></div>
+        </div>
+
+        <a href="https://instagram.com" target="_blank" class="drag-item group bottom-[15%] left-1/2 -translate-x-1/2 z-40 fade-in-up" style="animation-delay: 0.5s; --rot: 0deg;" data-rot="0">
+            <div class="bg-red-600 text-white w-56 h-20 flex items-center justify-center border-2 border-dashed border-white shadow-xl transform group-hover:scale-105 transition-transform cursor-pointer relative">
+                <div class="absolute -left-3 w-6 h-6 bg-[#f4f1e8] rounded-full"></div>
+                <div class="absolute -right-3 w-6 h-6 bg-[#f4f1e8] rounded-full"></div>
+                <div class="text-center"><span class="block text-[10px] font-mono tracking-widest opacity-80">INSTAGRAM</span><span class="block text-xl font-bold font-mono">VISUAL ARCHIVE</span></div>
+            </div>
+        </a>
+
+        <div class="drag-item polaroid bottom-[10%] left-[5%] z-12 fade-in-up" style="animation-delay: 0.6s; --rot: 6deg;" data-rot="6">
+            <div class="img-box"><span class="font-mono text-[10px] text-gray-400 text-center">Loading<br>Junoon...</span></div>
+            <div class="tape w-16 h-5 -top-2 left-[30%] rotate-1"></div>
+            <p class="hand-font text-xl mt-2 text-center text-gray-800">"Junoon"</p>
+        </div>
+
+        <div class="drag-item polaroid bottom-[20%] right-[10%] z-11 fade-in-up" style="animation-delay: 0.7s; --rot: -5deg;" data-rot="-5">
+            <div class="img-box bg-gray-100"><span class="font-mono text-[10px] text-gray-400">Virtusco</span></div>
+            <p class="hand-font text-xl mt-2 text-center text-gray-600">Coming Soon</p>
+        </div>
+
+        <div class="drag-item cassette w-56 h-36 p-2 bottom-[5%] right-[5%] z-25 flex flex-col items-center justify-center bg-gray-900 fade-in-up" style="animation-delay: 0.8s; --rot: 10deg;" data-rot="10">
+            <div class="bg-white w-full h-16 rounded flex items-center justify-center gap-4 px-2 relative overflow-hidden">
+                <div class="w-8 h-8 rounded-full border-4 border-black flex items-center justify-center"><div class="w-2 h-2 bg-black rounded-full"></div></div>
+                <div class="w-8 h-8 rounded-full border-4 border-black flex items-center justify-center"><div class="w-2 h-2 bg-black rounded-full"></div></div>
+            </div>
+            <div class="mt-2 text-center"><a href="mailto:allen@example.com" class="text-white font-mono text-xs hover:text-yellow-300 transition-colors">EMAIL_ME.wav</a></div>
+        </div>
+
+    </main>
+
+    <div class="fixed bottom-4 left-4 font-mono text-[10px] text-gray-500 pointer-events-none z-0">NOTEBOOK v1.5 // DRAG TO MESS IT UP</div>
+
+    <script>
+        const items = document.querySelectorAll('.drag-item');
+        let zIndex = 100;
+
+        function resetDesk() {
+            items.forEach(item => {
+                item.style.left = ''; item.style.top = ''; item.style.transform = ''; 
+                const rot = item.getAttribute('data-rot');
+                setTimeout(() => { item.style.transform = `rotate(${rot}deg)`; }, 10);
+            });
+        }
+
+        items.forEach(item => {
+            let isDragging = false; let startX, startY;
+            const startDrag = (e) => {
+                if (e.target.tagName === 'A') return; 
+                e.preventDefault(); isDragging = true; zIndex++; item.style.zIndex = zIndex; item.style.cursor = 'grabbing'; item.style.transition = 'none';
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const rect = item.getBoundingClientRect();
+                startX = clientX - rect.left; startY = clientY - rect.top;
+            };
+            const doDrag = (e) => {
+                if (!isDragging) return;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                item.style.left = `${clientX - startX}px`; item.style.top = `${clientY - startY}px`;
+                // REMOVED SCALE(1.05) HERE to prevent glitch
+                item.style.transform = `rotate(0deg)`;
+            };
+            const stopDrag = () => {
+                if (!isDragging) return;
+                isDragging = false; item.style.cursor = 'grab'; item.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                const rot = item.getAttribute('data-rot'); item.style.transform = `rotate(${rot}deg)`;
+            };
+            item.addEventListener('mousedown', startDrag); item.addEventListener('touchstart', startDrag, { passive: false });
+            window.addEventListener('mousemove', doDrag); window.addEventListener('touchmove', doDrag, { passive: false });
+            window.addEventListener('mouseup', stopDrag); window.addEventListener('touchend', stopDrag);
+        });
+    </script>
+</body>
+</html>
